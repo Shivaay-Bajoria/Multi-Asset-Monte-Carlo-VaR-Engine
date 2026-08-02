@@ -1,54 +1,87 @@
-// Step 1 smoke test.
+// Multi-Asset Monte Carlo VaR Engine
 //
-// This doesn't do anything "real" yet — no MarketData, no simulation.
-// The only goal here is to prove that:
-//   1. The project compiles with CMake + C++17
-//   2. Eigen is correctly included and usable
-//   3. A Cholesky decomposition (which we'll need for correlating assets
-//      in Step 5-6) actually runs and produces a sane result
+// Single entry point for the project. As we build out each step
+// (Portfolio, MonteCarloEngine, RiskMetrics), this file grows to wire
+// them together -- it stays the one place you run to see the whole
+// pipeline in action.
 //
-// Once this builds and runs cleanly, we move on to Step 2: MarketData.
+// Progress so far:
+//   [x] Step 1 -- Eigen + build sanity check (Cholesky smoke test)
+//   [x] Step 2 -- MarketData: load historical prices, compute mu/sigma
+//   [ ] Step 3 -- single-asset GBM simulation
+//   [ ] Step 4 -- RiskMetrics (VaR/CVaR) on single-asset output
+//   [ ] Step 5 -- multi-asset covariance + Cholesky
+//   [ ] Step 6 -- correlated multi-asset simulation
+//   [ ] Step 7 -- parallelization
+//
+// Run with: ./var_engine <path-to-price-csv>
+// Defaults to ../data/prices.csv if no argument is given.
 
 #include <iostream>
+#include <iomanip>
 #include <Eigen/Dense>
+#include "MarketData.h"
 
-int main() {
-    std::cout << "=== Multi-Asset Monte Carlo VaR Engine ===\n";
-    std::cout << "Step 1: build + Eigen smoke test\n\n";
+namespace {
 
-    // A toy 3x3 covariance-like matrix (symmetric positive definite),
-    // standing in for what MarketData will eventually compute from
-    // real historical returns.
+// Kept from Step 1 as a standalone sanity check you can call any time you
+// touch the build system or Eigen setup -- not part of the main pipeline.
+void runEigenSmokeTest() {
+    std::cout << "--- Eigen / Cholesky smoke test ---\n";
+
     Eigen::Matrix3d covariance;
     covariance << 0.04, 0.01, 0.00,
                   0.01, 0.09, 0.02,
                   0.00, 0.02, 0.16;
 
-    std::cout << "Sample covariance matrix (Sigma):\n" << covariance << "\n\n";
-
-    // Cholesky decomposition: Sigma = L * L^T
     Eigen::LLT<Eigen::Matrix3d> cholesky(covariance);
-
     if (cholesky.info() != Eigen::Success) {
-        std::cerr << "Cholesky decomposition failed — matrix is not positive definite.\n";
-        return 1;
+        std::cerr << "  Cholesky decomposition failed.\n";
+        return;
     }
 
     Eigen::Matrix3d L = cholesky.matrixL();
-    std::cout << "Cholesky factor (L):\n" << L << "\n\n";
-
-    // Sanity check: L * L^T should reconstruct the original covariance matrix.
     Eigen::Matrix3d reconstructed = L * L.transpose();
-    std::cout << "Reconstructed L * L^T (should match Sigma above):\n"
-              << reconstructed << "\n\n";
-
     double maxError = (reconstructed - covariance).cwiseAbs().maxCoeff();
-    std::cout << "Max reconstruction error: " << maxError << "\n";
 
-    if (maxError < 1e-10) {
-        std::cout << "\nBuild + Eigen check PASSED. Ready for Step 2 (MarketData).\n";
-    } else {
-        std::cout << "\nSomething is off — reconstruction error too large.\n";
+    std::cout << "  Max reconstruction error: " << maxError
+              << (maxError < 1e-10 ? "  [OK]\n" : "  [FAILED]\n");
+    std::cout << "\n";
+}
+
+void runMarketDataStep(const std::string& csvPath) {
+    std::cout << "--- MarketData: " << csvPath << " ---\n";
+
+    MarketData data(csvPath);
+
+    std::cout << std::fixed << std::setprecision(8);
+    std::cout << "  Observations: " << data.numObservations()
+              << "   Log returns: " << data.getLogReturns().size() << "\n";
+    std::cout << "  Daily mu:    " << data.getDailyMu() << "\n";
+    std::cout << "  Daily sigma: " << data.getDailySigma() << "\n";
+
+    std::cout << std::setprecision(6);
+    std::cout << "  Annualized mu:    " << data.getAnnualizedMu() << "\n";
+    std::cout << "  Annualized sigma: " << data.getAnnualizedSigma() << "\n";
+    std::cout << "  First price: " << data.getPrices()[0]
+              << "   Last price: " << data.getPrices()[data.getPrices().size() - 1] << "\n";
+    std::cout << "\n";
+}
+
+} // namespace
+
+int main(int argc, char** argv) {
+    std::cout << "=== Multi-Asset Monte Carlo VaR Engine ===\n\n";
+
+    runEigenSmokeTest();
+
+    std::string csvPath = (argc > 1) ? argv[1] : "../data/prices.csv";
+
+    try {
+        runMarketDataStep(csvPath);
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << "\n";
+        return 1;
     }
 
     return 0;

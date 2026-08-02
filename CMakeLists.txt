@@ -28,7 +28,7 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 # Once MarketData is proven correct, we'll fold everything back into a
 # single main.cpp and keep extending SOURCES with Portfolio.cpp, etc.
 set(SOURCES
-    src/main_step2.cpp
+    src/main.cpp
     src/MarketData.cpp
 )
 
