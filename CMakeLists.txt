@@ -23,9 +23,13 @@ include_directories(${CMAKE_SOURCE_DIR}/external/eigen)
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
 # --- Source files ---
-# As we build out MarketData.cpp, Portfolio.cpp, etc., add them to this list.
+# main.cpp is the Step 1 build/Eigen smoke test, kept for reference.
+# main_step2.cpp is the current entry point while we validate MarketData.
+# Once MarketData is proven correct, we'll fold everything back into a
+# single main.cpp and keep extending SOURCES with Portfolio.cpp, etc.
 set(SOURCES
-    src/main.cpp
+    src/main_step2.cpp
+    src/MarketData.cpp
 )
 
 add_executable(var_engine ${SOURCES})

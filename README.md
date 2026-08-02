@@ -160,8 +160,8 @@ This engine splits the total path count evenly across all available logical core
 
 ```bash
 # Clone and build
-git clone <your-repo-url>
-cd multi-asset-mc-var-engine
+git clone https://github.com/Shivaay-Bajoria/Multi-Asset-Monte-Carlo-VaR-Engine.git
+cd Multi-Asset-Monte-Carlo-VaR-Engine
 mkdir build && cd build
 cmake ..
 make
